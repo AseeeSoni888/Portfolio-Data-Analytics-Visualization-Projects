@@ -1,0 +1,166 @@
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+from selenium.common.exceptions import NoSuchElementException
+import pandas as pd
+import time
+import requests
+from bs4 import BeautifulSoup
+
+def select_dropdown_option(driver, select_id, option_text):
+    # Wait until the dropdown is visible
+    wait = WebDriverWait(driver, 20)
+    dropdown = wait.until(EC.visibility_of_element_located((By.ID, select_id)))
+
+    # Initialize the Select class
+    select = Select(dropdown)
+
+    # Select the option by visible text
+    select.select_by_visible_text(option_text)
+    time.sleep(10)   
+    
+def Date(driver,select_id,date):
+    wait = WebDriverWait(driver, 5)
+    box = wait.until(EC.visibility_of_element_located((By.ID, select_id)))
+    box.send_keys(date)
+    box.click()
+    time.sleep(5)
+    
+def Get_list(driver,select_id):
+    wait = WebDriverWait(driver, 5)
+    dropdown = wait.until(EC.visibility_of_element_located((By.ID, select_id)))
+    
+    # Initialize the Select class
+    select = Select(dropdown)
+    
+    data=[]
+    # Iterate through options and make a dictionary of the dropdown items
+    for option in select.options:
+        #print(option.text)
+        if option.text=='--Select--':
+            continue
+            
+        #data[option.text]='Pending'
+        data.append(option.text)
+        #print(data,"---->")
+        
+    return data
+
+def Click_on_button(driver,select_id):
+    # Wait until the dropdown is visible
+    wait = WebDriverWait(driver, 5)
+    button = wait.until(EC.visibility_of_element_located((By.ID, select_id)))
+    #ActionChains(driver).double_click(driver.find_element_by_xpath("//button[@id='btnsearch2']")).perform()
+    
+    # Create an instance of ActionChains
+    actions = ActionChains(driver)
+
+    # Move to the button and click it
+    actions.move_to_element(button).click().perform()
+    
+def Get_Data(driver,village):
+    try:
+        # Wait for the page to load
+        driver.implicitly_wait(10)
+
+        table = driver.find_element(By.ID, 'tableparty')
+
+        # Get the HTML content of the table
+        table_html = table.get_attribute('outerHTML')
+
+        # Parse the table HTML with BeautifulSoup
+        soup = BeautifulSoup(table_html, 'html.parser')
+        rows = soup.find_all('tr')
+
+        # Extract headers
+        headers = [header.text.strip() for header in rows[0].find_all('th')]
+
+        # Extract rows
+        data = []
+        #data=pd.DataFrame()
+        for row in rows[1:]:
+            #cells = row.find_all(['td', 'th'])
+            cells=row.find_all('td')
+            row_data = [cell.text.strip() for cell in cells]
+            data.append(row_data)
+        #test=data[0]
+        el=data[0]
+        df=data[0]
+
+        #for el in data[0]:
+            #print(el,"-->")
+
+        # Create DataFrame
+        #df = pd.DataFrame(columns=['Registration Date','Second Party', 'First Party', 'Locality','Plot No',"Deed Type","SRO"])
+    
+        
+        # Print the DataFrame
+        for d in data[0]:
+            print(d)
+        #print(df)
+        #data[0].to_csv(f"{village}.csv")
+        
+    except NoSuchElementException:
+        print("No Data available")
+        return
+    
+    
+
+def Scrape(district,talukas,villages,driver):
+    #for taluka in talukas:
+    for village in villages:
+        #print(village)
+        driver.get(url)
+        driver.maximize_window()
+        select_dropdown_option(driver, 'Search', 'Property Details')
+        select_dropdown_option(driver, 'district_id', district)
+        Date(driver,'fromdate','01-02-2024')
+        Date(driver,'todate','10-07-2024')
+        time.sleep(10)
+        select_dropdown_option(driver, 'taluka_id',talukas)
+        select_dropdown_option(driver,'village_id',village)
+        select_dropdown_option(driver,'attribute_id','Plot Number')
+        Click_on_button(driver,'btnsearch2')
+        time.sleep(5)
+        try :
+            select_dropdown_option(driver, 'tableparty_length','All')
+        except:
+            print("Next Page is not available")
+            
+        Get_Data(driver,village)
+            #print("Taluka is :",taluka,"Village is :",village, "-->")
+            
+          
+        
+        
+try : 
+    driver_path = 'C:/web_driver/chromedriver.exe'
+    url = 'https://ngdrs.delhi.gov.in/NGDRS_DL/DLSearch/search/5887'
+    driver = webdriver.Chrome(executable_path=driver_path)
+    districts=['Central','East','New Delhi','North','North East','North West','Shahdara','South','South East','South West','West']
+    Villages=[]
+    for district in districts :
+        driver.get(url)
+        driver.maximize_window()
+
+        select_dropdown_option(driver, 'Search', 'Property Details')
+        #select_district(driver,'district_id',district)
+        select_dropdown_option(driver,'district_id',district)
+        Date(driver,'fromdate','01-02-2024')
+        Date(driver,'todate','10-07-2024')
+        Talukas=Get_list(driver,"taluka_id")
+        #print(Talukas)
+        print(f"District is : {district} ------------------->",)
+        for Taluka in Talukas:
+            select_dropdown_option(driver, 'taluka_id',Taluka)
+            print(f"Taluka is : {Taluka} -------------------->",)
+            Villages=Get_list(driver,"village_id")
+            Scrape(district, Taluka, Villages, driver)
+        
+
+finally :
+    driver.close()
